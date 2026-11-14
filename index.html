@@ -131,12 +131,28 @@ html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-b
 .recbtns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .livebox{font:500 14px var(--mono);background:var(--soft);border-radius:8px;padding:8px 10px;margin:0 0 12px}
 
+/* gym report */
+.plan{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.plan li{background:var(--soft);border-left:4px solid var(--accent);border-radius:6px;padding:8px 10px;font-size:14px}
+.plan li.warn{border-left-color:var(--warn)}.plan li.ok{border-left-color:var(--ok)}
+.plan b{display:block;font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:2px}
+.gt{width:100%;border-collapse:collapse;font-size:14px}.gt th,.gt td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.gt th{color:var(--mute);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.05em;background:var(--panel)}.gt tr:last-child td{border-bottom:0}
+.fieldrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.fieldrow label{display:grid;gap:3px;font-size:12px;color:var(--mute)}
+.fieldrow input,.fieldrow select,#rpText2{font:500 14px var(--mono);color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:40px;width:100%}
+#rpText2{resize:vertical;line-height:1.5}
+.hist{display:flex;gap:12px;align-items:flex-end;min-height:96px;overflow-x:auto;padding-bottom:4px}
+.hcol{display:flex;flex-direction:column;align-items:center;gap:4px;font:11px var(--mono);color:var(--mute);min-width:44px}
+.hbars{display:flex;gap:3px;align-items:flex-end;height:64px}.hbars i{width:14px;border-radius:3px 3px 0 0;display:block;min-height:2px}
+
 </style></head><body>
 <nav class="topnav" aria-label="Pages">
   <div class="in">
     <div class="navleft"><a class="brand" href="#monitor"><i></i>BoneLoad</a>
       <div class="tabs" role="tablist" aria-label="Pages">
         <button type="button" role="tab" id="tab-monitor" aria-controls="monitor" aria-selected="true">Monitor</button>
+        <button type="button" role="tab" id="tab-report" aria-controls="report" aria-selected="false">Gym report</button>
         <button type="button" role="tab" id="tab-setup" aria-controls="setup" aria-selected="false">Setup guide</button>
         <button type="button" role="tab" id="tab-project" aria-controls="project" aria-selected="false">Project</button>
       </div></div>
@@ -186,7 +202,7 @@ html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-b
 <div class="grid">
 <section class="card"><div><div class="tag">Live signal</div><h2>Knee acceleration</h2></div>
 <canvas id="cv" aria-label="Live acceleration trace"></canvas>
-<div class="bar small mute mono"><span>now <b id="gNow" style="color:var(--ink)">1.00 g</b></span><span>rate <b id="hz" style="color:var(--ink)">0 Hz</b></span><span>line at 2 g = bone-loading threshold</span></div></section>
+<div class="bar small mute mono"><span>0.25 s average <b id="gNow" style="color:var(--ink)">1.00 g</b></span><span>rate <b id="hz" style="color:var(--ink)">0 Hz</b></span><span>line at 2 g = bone-loading threshold</span></div></section>
 
 <section class="card"><div><div class="tag">Model running on this device</div><h2>Activity model (k-nearest neighbours)</h2></div>
 <div class="bar" style="justify-content:space-between;align-items:baseline"><span class="cur" id="cur">-</span><span class="small mute mono" id="nov">novelty -</span></div>
@@ -216,13 +232,59 @@ html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-b
 <section class="card"><div><div class="tag">Pipeline</div><h2>How it works</h2></div>
 <div class="steps">
 <div class="step"><b>1 SENSE</b>Phone accelerometer and gyroscope, about 60 samples per second.</div>
-<div class="step"><b>2 WINDOW</b>1 second windows every 0.5 s, 7 features each (shock size, spread, rotation, rhythm).</div>
-<div class="step"><b>3 MODEL</b>k-nearest neighbours names the activity and flags motion it has never seen.</div>
+<div class="step"><b>2 WINDOW</b>0.25 s averages that keep their peaks, grouped into 2 s windows every 0.5 s, 7 features each.</div>
+<div class="step"><b>3 MODEL</b>k-nearest neighbours names the activity, smoothed so it does not flicker, and flags motion it has never seen.</div>
 <div class="step"><b>4 DOSE</b>Impact peaks and squat time turn into two daily scores.</div>
 <div class="step"><b>5 ADVISE</b>Behind pace: suggests jumping or resistance work, with how much.</div></div>
 <p class="small mute">The starter model is trained on simulated motion so the page works at once. Use the calibrate buttons to retrain it on real movement from your phone. Phone web pages expose acceleration and rotation only, not infrared or other sensors.</p></section>
 
 
+</div></div>
+
+<div id="report" role="tabpanel" aria-labelledby="tab-report" hidden>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:4px">
+    <div class="tag">Gym report</div>
+    <h1>Today's loading report</h1>
+    <p class="mute" style="max-width:66ch" id="rpSub">What you did, how it loaded your bones, and what the model suggests next.</p>
+  </header>
+  <section class="card hero starting" id="rpHero">
+    <div class="bar" style="justify-content:space-between"><span class="pill starting" id="rpPill">Starting</span><span class="small mute mono" id="rpDay">day 0%</span></div>
+    <div class="big" id="rpHead">No session yet</div>
+    <p id="rpText" class="mute">Start the monitor or run the demo, then come back here.</p>
+  </section>
+  <div class="grid">
+    <section class="card"><div><div class="tag">Session</div><h2>What you did</h2></div>
+      <div class="stats" id="rpStats"></div><div id="rpTime" style="display:flex;flex-direction:column;gap:5px"></div></section>
+    <section class="card"><div><div class="tag">Daily dose</div><h2>Loading scores</h2></div>
+      <div class="row"><span>Impact</span><div class="track"><div class="fill" id="rpFi" style="background:var(--c-hop)"></div><div class="mark" id="rpMi"></div></div><span class="num" id="rpVi">0</span></div>
+      <div class="row"><span>Resistance</span><div class="track"><div class="fill" id="rpFr" style="background:var(--c-squat)"></div><div class="mark" id="rpMr"></div></div><span class="num" id="rpVr">0</span></div>
+      <p class="small mute">Black tick is where you should be by now. The day target is 60. These are loading scores from the phone, not bone density.</p></section>
+    <section class="card"><div><div class="tag">What the model suggests</div><h2>Next steps today</h2></div>
+      <ul class="plan" id="rpPlan"></ul>
+      <p class="small mute">The activity model names what you did. Simple rules compare it with the daily targets. The exercise amounts are starting suggestions.</p></section>
+    <section class="card"><div><div class="tag">Future goals</div><h2>Tomorrow's targets</h2></div>
+      <div class="table-wrap" style="margin:0"><table class="gt"><thead><tr><th>Goal</th><th>Today</th><th>Target</th><th>How</th></tr></thead><tbody id="rpGoals"></tbody></table></div>
+      <p class="small mute">Wear the phone in the same spot every day so the numbers are comparable.</p></section>
+    <section class="card"><div><div class="tag">Bone density</div><h2>Your DXA scans</h2></div>
+      <p class="small mute">The app does not measure bone density. A DXA scan does. Enter your last two scans to track the change next to your loading.</p>
+      <div class="fieldrow">
+        <label for="dxaSite">Scan site<select id="dxaSite"><option>Hip</option><option>Spine</option><option>Heel</option><option>Whole body</option></select></label>
+        <label for="dxaPV">Previous BMD (g/cm²)<input id="dxaPV" type="number" step="0.001" min="0" inputmode="decimal"></label>
+        <label for="dxaPD">Previous scan date<input id="dxaPD" type="date"></label>
+        <label for="dxaLV">Latest BMD (g/cm²)<input id="dxaLV" type="number" step="0.001" min="0" inputmode="decimal"></label>
+        <label for="dxaLD">Latest scan date<input id="dxaLD" type="date"></label>
+      </div>
+      <div class="livebox" id="dxaOut">Enter two scans to see your change.</div>
+      <p class="small mute">Saved on this phone only. For comparison, NASA bed-rest Campaign 3 (MR035G) averaged a 2.59% fall in hip density. If your scans show a drop, talk to your doctor or flight surgeon. The app cannot diagnose.</p></section>
+    <section class="card"><div><div class="tag">History</div><h2>Saved days</h2></div>
+      <div class="hist" id="rpHist"></div>
+      <div class="bar"><button type="button" class="primary" id="rpSave">Save today's report</button><button type="button" id="rpClear">Clear history</button></div>
+      <p class="small mute" id="rpHistNote">Bars show impact (orange) and resistance (green) score for each saved day.</p></section>
+  </div>
+  <section class="card"><div><div class="tag">Share</div><h2>Report summary</h2></div>
+    <textarea id="rpText2" readonly rows="9" aria-label="Report summary text"></textarea>
+    <div class="bar"><button type="button" id="rpCopy">Copy summary</button><span class="small mute" id="rpCopied"></span></div></section>
 </div></div>
 
 <div id="setup" role="tabpanel" aria-labelledby="tab-setup" hidden>
@@ -293,7 +355,7 @@ html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-b
   <p class="sec-lead">An accelerometer feels every force except gravity, so a phone on the leg feels every impact the skeleton takes.</p>
   <div class="grid3">
     <div class="card"><div class="stepno">01 &middot; Sense</div><h3>One phone on the knee</h3><p>The phone's accelerometer and gyroscope are read in the browser at about 60 samples per second. Nothing leaves the phone. A 3 second stand-still check confirms the sensor and strap.</p></div>
-    <div class="card"><div class="stepno">02 &middot; Compute</div><h3>A model, then a score</h3><p>A k-nearest-neighbours model names the activity twice a second. Impact peaks and squat time turn into two daily scores.</p>
+    <div class="card"><div class="stepno">02 &middot; Compute</div><h3>A model, then a score</h3><p>The signal is averaged in 0.25 second steps that keep their peaks. A k-nearest-neighbours model reads 2 seconds of them, names the activity, and is smoothed so it does not flicker. Impact peaks and squat time turn into two daily scores.</p>
       <div class="formula">score = 100 &middot; (1 &minus; e<sup>&minus;dose/D</sup>)</div></div>
     <div class="card"><div class="stepno">03 &middot; Act</div><h3>A clear next step</h3><p>A status of Protected, Watch or At risk, with advice such as &ldquo;about 70 more hops or heel drops&rdquo; or &ldquo;3 more minutes of squats&rdquo;, and alerts for hard impacts and long stretches with no strong impact.</p></div>
   </div>
@@ -868,7 +930,7 @@ footer { color: var(--muted); font-size: 12px; line-height: 1.5; max-width: 900p
     <thead><tr><th>Measure</th><th>Type</th><th>How</th></tr></thead><tbody>
       <tr><td>Impact peaks</td><td><span class="mtag m">measured</span></td><td>Highest acceleration of each heel strike or landing at the knee</td></tr>
       <tr><td>Time since last strong impact</td><td><span class="mtag m">measured</span></td><td>Clock since the last impact above 2 g</td></tr>
-      <tr><td>Activity type</td><td><span class="mtag e">estimated</span></td><td>k-nearest-neighbours model on 7 motion features, twice a second</td></tr>
+      <tr><td>Activity type</td><td><span class="mtag e">estimated</span></td><td>k-nearest-neighbours model on 7 motion features from 2 s of 0.25 s averages, smoothed</td></tr>
       <tr><td>Impact score</td><td><span class="mtag e">estimated</span></td><td>Peaks above 2 g, bigger counts more, diminishing returns (heuristic)</td></tr>
       <tr><td>Resistance score</td><td><span class="mtag e">estimated</span></td><td>Seconds the model classifies as squat or lift</td></tr>
       <tr><td>Unusual motion</td><td><span class="mtag e">estimated</span></td><td>Distance to the nearest known example above a limit</td></tr>
@@ -939,18 +1001,20 @@ footer { color: var(--muted); font-size: 12px; line-height: 1.5; max-width: 900p
 
 <div class="tip" id="tip"></div>
 <script>
-/* ===== CORE: simulator, features, k-NN model, impact detector, bone loading dose ===== */
+/* ===== CORE: simulator, 0.25 s binning, window features, k-NN model, stabilizer, impact detector, dose ===== */
 const FS = 50;
+const BIN = 0.25, WIN_BINS = 8;           // 0.25 s averages, 2 s windows
 const CLASSES = ['rest', 'walk', 'run', 'hop', 'squat'];
 const LABELS = { rest: 'Resting', walk: 'Walking', run: 'Running', hop: 'Jumping', squat: 'Squat / lift' };
 const IMPACT_CLASSES = ['walk', 'run', 'hop'];
 
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function gauss(r) { const u = r() || 1e-9, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const argmax = o => CLASSES.reduce((b, c) => o[c] > o[b] ? c : b, CLASSES[0]);
 
-/* Simulated knee-mounted phone: returns [|accel| in g incl. gravity, |gyro| in deg/s] */
+/* Simulated knee-mounted phone: returns [|accel| in g incl. gravity, |gyro| in deg/s]. jerk adds small random bumps. */
 class Sim {
-  constructor(cls, r, fs = FS) { this.cls = cls; this.r = r; this.fs = fs; this.t = 0; this.evs = []; this.nextEv = 0.1 + 0.3 * r(); this.retune(); }
+  constructor(cls, r, fs = FS, jerk = false) { this.cls = cls; this.r = r; this.fs = fs; this.t = 0; this.evs = []; this.nextEv = 0.1 + 0.3 * r(); this.jerk = jerk; this.nextJ = 1 + 2 * r(); this.js = null; this.retune(); }
   retune() {
     const r = this.r;
     const P = {
@@ -968,6 +1032,10 @@ class Sim {
     while (this.evs.length && t - this.evs[0][0] > 0.25) this.evs.shift();
     let a = 1 + p.sw * Math.sin(2 * Math.PI * p.f * t);
     for (const [te, A] of this.evs) { const x = (t - te - 0.03) / 0.03; a += A * Math.exp(-x * x); }
+    if (this.jerk) {
+      if (t >= this.nextJ) { this.js = [t, 0.4 + 0.5 * r()]; this.nextJ = t + 2 + 3 * r(); }
+      if (this.js && t - this.js[0] < 0.05) a += this.js[1] * Math.sin(Math.PI * (t - this.js[0]) / 0.05);
+    }
     a += gauss(r) * p.n;
     const w = p.g * Math.abs(Math.sin(Math.PI * p.f * t)) + Math.abs(gauss(r)) * p.gn;
     this.t += 1 / this.fs;
@@ -975,15 +1043,28 @@ class Sim {
   }
 }
 
-/* 7 features from one window of samples */
-function features(a, w, dur) {
-  const n = a.length; if (n < 8 || dur <= 0) return null;
-  let m = 0, mx = 0, mw = 0, mxw = 0, ss = 0, jerk = 0;
-  for (let i = 0; i < n; i++) { m += a[i]; if (a[i] > mx) mx = a[i]; mw += w[i]; if (w[i] > mxw) mxw = w[i]; if (i) jerk += Math.abs(a[i] - a[i - 1]); }
-  m /= n; mw /= n;
-  let dyn = 0, zc = 0, s = 0;
-  for (let i = 0; i < n; i++) { const d = a[i] - m; ss += d * d; dyn += (a[i] - 1) * (a[i] - 1); const ns = d > 0.03 ? 1 : d < -0.03 ? -1 : 0; if (ns && s && ns !== s) zc++; if (ns) s = ns; }
-  return [Math.sqrt(dyn / n), mx - 1, Math.sqrt(ss / n), mw, mxw, zc / dur, jerk / dur];
+/* 0.25 s bins: each keeps the average (smooth, for display and rhythm) and the peak (so short impacts survive averaging) */
+class Binner {
+  constructor() { this.t0 = null; this.clear(); }
+  clear() { this.n = 0; this.s = 0; this.mx = -1; this.mn = 99; this.gs = 0; this.gm = 0; }
+  push(t, a, w) {
+    if (this.t0 === null) this.t0 = t;
+    let out = null;
+    if (t - this.t0 >= BIN && this.n > 0) {
+      out = { t: this.t0 + BIN, mean: this.s / this.n, max: this.mx, min: this.mn, gmean: this.gs / this.n, gmax: this.gm };
+      this.t0 += BIN * Math.max(1, Math.floor((t - this.t0) / BIN)); this.clear();
+    }
+    this.s += a; this.n++; if (a > this.mx) this.mx = a; if (a < this.mn) this.mn = a; this.gs += w; if (w > this.gm) this.gm = w;
+    return out;
+  }
+}
+
+/* 7 features from 8 bins (2 s) */
+function winFeatures(bins) {
+  const n = bins.length, avg = v => v.reduce((a, b) => a + b, 0) / v.length;
+  const pk = bins.map(b => b.max - 1), mean = bins.map(b => b.mean), m = avg(mean);
+  const sd = Math.sqrt(avg(mean.map(x => (x - m) ** 2)));
+  return [avg(pk), Math.max(...pk), sd, avg(bins.map(b => b.gmean)), Math.max(...bins.map(b => b.gmax)), avg(bins.map(b => b.max - b.min)), pk.filter(x => x > 0.6).length / n];
 }
 
 class KNN {
@@ -1012,23 +1093,39 @@ class KNN {
     const top = arr.slice(0, this.k), probs = {}; let tot = 0, dist = 0;
     CLASSES.forEach(c => probs[c] = 0);
     top.forEach(([d, c]) => { const wgt = 1 / (d + 0.05); probs[c] += wgt; tot += wgt; dist += d / this.k; });
-    let best = CLASSES[0];
-    CLASSES.forEach(c => { probs[c] /= tot; if (probs[c] > probs[best]) best = c; });
-    return { label: best, probs, dist };
+    CLASSES.forEach(c => { probs[c] /= tot; });
+    return { label: argmax(probs), probs, dist };
   }
   predict(x) { const r = this.query(this.z(x), -1); r.anom = r.dist > this.thr; return r; }
 }
 
-function simWindows(cls, seed, seconds = 8, fs = FS) {
-  const r = mulberry(seed), s = new Sim(cls, r, fs), N = Math.round(seconds * fs), a = [], w = [];
-  for (let i = 0; i < N; i++) { const [x, y] = s.step(); a.push(x); w.push(y); }
-  const out = [], win = fs, hop = Math.round(fs / 2);
-  for (let i = 0; i + win <= N; i += hop) out.push(features(a.slice(i, i + win), w.slice(i, i + win), win / fs));
-  return out;
+/* Smooths class probabilities and only switches state when a new class has won clearly and repeatedly. */
+class Stabilizer {
+  constructor() { this.p = null; this.label = null; this.cand = null; this.cnt = 0; this.since = 0; }
+  update(probs, t) {
+    if (!this.p) { this.p = Object.assign({}, probs); this.label = argmax(probs); this.since = t; }
+    else {
+      CLASSES.forEach(c => this.p[c] = 0.65 * this.p[c] + 0.35 * probs[c]);
+      const best = argmax(this.p);
+      if (best !== this.label) {
+        if (best === this.cand) this.cnt++; else { this.cand = best; this.cnt = 1; }
+        if (this.cnt >= 3 && this.p[best] - this.p[this.label] > 0.1 && t - this.since >= 1.5) { this.label = best; this.since = t; this.cand = null; this.cnt = 0; }
+      } else { this.cand = null; this.cnt = 0; }
+    }
+    return { label: this.label, probs: this.p, conf: this.p[this.label] };
+  }
 }
+
+function simBins(cls, seed, seconds = 12, jerk = false, fs = FS) {
+  const r = mulberry(seed), s = new Sim(cls, r, fs, jerk), b = new Binner(), bins = [], N = Math.round(seconds * fs);
+  for (let i = 0; i < N; i++) { const [a, w] = s.step(); const o = b.push(i / fs, a, w); if (o) bins.push(o); }
+  return bins;
+}
+function binWindows(bins) { const out = []; for (let i = 0; i + WIN_BINS <= bins.length; i += 2) out.push(winFeatures(bins.slice(i, i + WIN_BINS))); return out; }
+function simWindows(cls, seed, seconds = 12, jerk = false) { return binWindows(simBins(cls, seed, seconds, jerk)); }
 function starterSet() {
   const set = {};
-  CLASSES.forEach((c, ci) => { set[c] = []; for (let k = 0; k < 8; k++) set[c].push(...simWindows(c, 1000 * ci + k + 7)); });
+  CLASSES.forEach((c, ci) => { set[c] = []; for (let k = 0; k < 10; k++) set[c].push(...simWindows(c, 1000 * ci + k + 7, 12, (c === 'rest' || c === 'squat') && k % 3 === 2)); });
   return set;
 }
 function buildKNN(starter, custom) {
@@ -1037,13 +1134,13 @@ function buildKNN(starter, custom) {
   const m = new KNN(5); m.fit(X, y); return m;
 }
 
-/* Detects one heel strike / landing at a time on the raw |accel| stream (g) */
+/* Detects one heel strike / landing at a time on the raw |accel| stream (g). Needs a real jolt, not a small jerk. */
 class ImpactDetector {
   constructor() { this.on = false; this.pk = 0; this.t0 = 0; this.last = -1; }
   push(t, a) {
-    if (!this.on) { if (a > 1.6 && t - this.last > 0.2) { this.on = true; this.pk = a; this.t0 = t; } return null; }
+    if (!this.on) { if (a > 1.9 && t - this.last > 0.25) { this.on = true; this.pk = a; this.t0 = t; } return null; }
     if (a > this.pk) this.pk = a;
-    if (a < 1.3 || t - this.t0 > 0.25) { this.on = false; this.last = t; return this.pk; }
+    if (a < 1.35 || t - this.t0 > 0.25) { this.on = false; this.last = t; return this.pk; }
     return null;
   }
 }
@@ -1054,11 +1151,13 @@ const impW = pk => pk <= 2 ? 0 : Math.min(((pk - 2) / 2) ** 2, 6);
 const score = (x, k) => 100 * (1 - Math.exp(-x / k));
 class Day {
   constructor(len) { this.len = len; this.reset(); }
-  reset() { this.boost = this.boost || 1; this.t = 0; this.D = 0; this.res = 0; this.n = { low: 0, mid: 0, high: 0 }; this.time = {}; CLASSES.forEach(c => this.time[c] = 0); this.lastOst = 0; }
+  reset() { this.boost = this.boost || 1; this.t = 0; this.D = 0; this.res = 0; this.maxPk = 0; this.cnt = { walk: 0, run: 0, hop: 0 }; this.n = { low: 0, mid: 0, high: 0 }; this.time = {}; CLASSES.forEach(c => this.time[c] = 0); this.lastOst = 0; }
   addImpact(pk, label) {
-    if (!IMPACT_CLASSES.includes(label)) return;
+    if (!IMPACT_CLASSES.includes(label)) return false;
+    this.cnt[label]++; if (pk > this.maxPk) this.maxPk = pk;
     if (pk < 2) this.n.low++; else if (pk < 3.5) this.n.mid++; else this.n.high++;
     const w = impW(pk) * this.boost; this.D += w; if (w > 0) this.lastOst = this.t;
+    return true;
   }
   addWindow(label, dt) { this.t += dt; this.time[label] += dt; if (label === 'squat') this.res += dt * this.boost; }
   get imp() { return score(this.D, D0); }
@@ -1073,10 +1172,10 @@ class Day {
     return a && b ? 'protected' : (a || b) ? 'watch' : 'risk';
   }
   hopsNeeded() { const need = -D0 * Math.log(1 - END_TARGET / 100); return Math.max(0, Math.ceil((need - this.D) / (1.2 * this.boost))); }
-  liftMinNeeded() { const need = -R0 * Math.log(1 - END_TARGET / 100); return Math.max(0, (need - this.res) / 60); }
+  liftMinNeeded() { const need = -R0 * Math.log(1 - END_TARGET / 100); return Math.max(0, (need - this.res) / 60 / this.boost); }
 }
 
-if (typeof module !== 'undefined') module.exports = { FS, CLASSES, LABELS, Sim, mulberry, features, KNN, simWindows, starterSet, buildKNN, ImpactDetector, Day, impW, score, gauss };
+if (typeof module !== 'undefined') module.exports = { FS, BIN, WIN_BINS, CLASSES, LABELS, Sim, mulberry, Binner, winFeatures, KNN, Stabilizer, simBins, binWindows, simWindows, starterSet, buildKNN, ImpactDetector, Day, impW, score, gauss, argmax };
 
 </script>
 <script>
@@ -1088,9 +1187,9 @@ const fmtT = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + 
 /* ---------- state ---------- */
 let mode = null, buf = [], impacts = [], lastT = 0, lastProc = 0, gotEvent = false, rateN = 0, rateT0 = 0, rate = 0;
 let cur = null, anomRun = 0, prevStatus = 'starting', rec = null, timers = [], demo = null;
-const det = new ImpactDetector(), day = new Day(57600);
+const det = new ImpactDetector(), day = new Day(57600); let binner = new Binner(), stab = new Stabilizer(); let bins = [], lastBin = null, rateShown = 0, rateAt = 0;
 const starter = starterSet(); let custom = {};
-try { custom = JSON.parse(localStorage.getItem('boneCustom') || '{}') || {}; } catch (e) { custom = {}; }
+try { custom = JSON.parse(localStorage.getItem('boneCustom2') || '{}') || {}; } catch (e) { custom = {}; }
 let knn = buildKNN(starter, custom);
 const cool = {}; let logItems = [];
 
@@ -1113,10 +1212,15 @@ function pushAlert(type, text, level) {
 function feed(t, a, w) {
   lastT = t; buf.push({ t, a, w }); while (buf.length && buf[0].t < t - 10) buf.shift();
   rateN++; if (!rateT0) rateT0 = t; if (t - rateT0 >= 1) { rate = rateN / (t - rateT0); rateN = 0; rateT0 = t; }
+  const b = binner.push(t, a, w);
+  if (b) {
+    bins.push(b); if (bins.length > 16) bins.shift(); lastBin = b;
+    $('#gNow').textContent = b.mean.toFixed(2) + ' g';
+    if (t - rateAt >= 1) { rateAt = t; rateShown = Math.round(rate / 5) * 5; $('#hz').textContent = '~' + rateShown + ' Hz'; }
+  }
   const pk = det.push(t, a);
   if (pk) {
-    impacts.push({ t, pk }); while (impacts.length && impacts[0].t < t - 10) impacts.shift();
-    day.addImpact(pk, cur ? cur.label : 'rest');
+    if (day.addImpact(pk, cur ? cur.label : 'rest')) { impacts.push({ t, pk }); while (impacts.length && impacts[0].t < t - 10) impacts.shift(); }
     if (pk > 6) pushAlert('hard', `Hard impact of ${pk.toFixed(1)} g. Check for a fall or collision.`, 'crit');
   }
 }
@@ -1127,7 +1231,7 @@ function onMotion(e) {
 }
 
 /* ---------- modes ---------- */
-function resetStream() { buf = []; impacts = []; cur = null; anomRun = 0; rate = 0; rateN = 0; rateT0 = 0; lastProc = 0; }
+function resetStream() { buf = []; bins = []; lastBin = null; binner = new Binner(); stab = new Stabilizer(); impacts = []; cur = null; anomRun = 0; rate = 0; rateN = 0; rateT0 = 0; lastProc = 0; }
 function setRunning(on, label) {
   $('#dot').className = 'dot' + (on ? ' on' : ''); $('#conn').textContent = label; $('#bStop').disabled = !on; $('#bLive').disabled = on; $('#bDemo').disabled = on;
 }
@@ -1170,10 +1274,10 @@ function newDay() { day.reset(); logItems = []; prevStatus = 'starting'; Object.
 
 /* ---------- one model step every 0.5 s ---------- */
 function processWindow() {
-  if (!mode || !buf.length) return;
-  const t1 = lastT, win = buf.filter(s => s.t > t1 - 1); if (win.length < 20) return;
-  const f = features(win.map(s => s.a), win.map(s => s.w), win[win.length - 1].t - win[0].t); if (!f) return;
-  cur = knn.predict(f);
+  if (!mode || bins.length < WIN_BINS) return;
+  const t1 = lastT, f = winFeatures(bins.slice(-WIN_BINS));
+  const raw = knn.predict(f), s = stab.update(raw.probs, t1);
+  cur = { label: s.label, probs: s.probs, conf: s.conf, dist: raw.dist, anom: raw.anom };
   const dt = lastProc ? Math.min(1, t1 - lastProc) : 0.5; lastProc = t1;
   day.addWindow(cur.label, dt);
   anomRun = cur.anom ? anomRun + 1 : 0;
@@ -1207,13 +1311,13 @@ function startRecording(c) {
 }
 function finishRecording() {
   const r = rec; rec = null;
-  if (r.data.length >= 10) { custom[r.cls] = r.data; try { localStorage.setItem('boneCustom', JSON.stringify(custom)); } catch (e) { } knn = buildKNN(starter, custom); msg(`${LABELS[r.cls]} saved: ${r.data.length} windows. Model retrained.`, 'info'); }
+  if (r.data.length >= 10) { custom[r.cls] = r.data; try { localStorage.setItem('boneCustom2', JSON.stringify(custom)); } catch (e) { } knn = buildKNN(starter, custom); msg(`${LABELS[r.cls]} saved: ${r.data.length} windows. Model retrained.`, 'info'); }
   else msg('Not enough data recorded. Try again.', 'warn');
   $('#mstat').textContent = '';
 }
 $('#cal').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.id === 'calClear') { custom = {}; try { localStorage.removeItem('boneCustom'); } catch (x) { } knn = buildKNN(starter, custom); msg('Model reset to the simulated starter set.', 'info'); render(); return; }
+  if (b.id === 'calClear') { custom = {}; try { localStorage.removeItem('boneCustom2'); } catch (x) { } knn = buildKNN(starter, custom); msg('Model reset to the simulated starter set.', 'info'); render(); return; }
   startRecording(b.dataset.c);
 });
 
@@ -1256,7 +1360,6 @@ function draw() {
   if (pts.length > 1) { ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.6; ctx.beginPath(); pts.forEach((s, i) => { const x = X(s.t), y = Y(Math.min(gmax, s.a)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
   impacts.forEach(m => { if (m.t < lastT - 8) return; ctx.fillStyle = m.pk >= 2 ? css('--c-hop') : css('--mute'); ctx.beginPath(); ctx.arc(X(m.t), Y(Math.min(gmax, m.pk)), 4, 0, 7); ctx.fill(); });
   if (hover != null && pts.length) { const t = lastT - 8 + hover / W * 8, s = pts.reduce((b, p) => Math.abs(p.t - t) < Math.abs(b.t - t) ? p : b, pts[0]); ctx.strokeStyle = css('--ink'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(s.t), 0); ctx.lineTo(X(s.t), H); ctx.stroke(); hover = { x: hover, s }; }
-  if (pts.length) $('#gNow').textContent = pts[pts.length - 1].a.toFixed(2) + ' g'; $('#hz').textContent = Math.round(rate) + ' Hz';
   requestAnimationFrame(draw);
 }
 function move(e) { const r = cv.getBoundingClientRect(), p = e.touches ? e.touches[0] : e, x = p.clientX - r.left; hover = x; setTimeout(() => { if (hover && hover.s) { const t = $('#tip'); t.style.display = 'block'; t.textContent = `${(hover.s.t - lastT).toFixed(1)} s · ${hover.s.a.toFixed(2)} g`; t.style.left = Math.min(p.clientX + 12, innerWidth - 120) + 'px'; t.style.top = (p.clientY - 34) + 'px'; } }, 0); }
@@ -1343,7 +1446,7 @@ try { if (window.top !== window.self) msg('This page is running inside a frame, 
         <ul class="muted"><li>Resting: stand or sit still.</li><li>Walking: walk at a normal pace.</li><li>Running: jog on the spot or outdoors.</li><li>Jumping: small hops or jump squats.</li><li>Squat / lift: slow squats, with weight if you have it.</li></ul>`,
       after: () => {
         E('wz-btns').onclick = e => { const b = e.target.closest('button'); if (!b) return;
-          if (b.id === 'wz-reset') { custom = {}; try { localStorage.removeItem('boneCustom'); } catch (x) { } knn = buildKNN(starter, custom); msg('Model reset to the simulated starter set.', 'info'); return; }
+          if (b.id === 'wz-reset') { custom = {}; try { localStorage.removeItem('boneCustom2'); } catch (x) { } knn = buildKNN(starter, custom); msg('Model reset to the simulated starter set.', 'info'); return; }
           startRecording(b.dataset.c); };
       },
       check: () => '' },
@@ -1399,25 +1502,131 @@ try { if (window.top !== window.self) msg('This page is running inside a frame, 
   go(0);
 
   /* ----- tab router ----- */
-  const views = { monitor: E('monitor'), setup: E('setup'), project: E('project') };
-  const tabs = { monitor: E('tab-monitor'), setup: E('tab-setup'), project: E('tab-project') };
+  const views = { monitor: E('monitor'), report: E('report'), setup: E('setup'), project: E('project') };
+  const tabs = { monitor: E('tab-monitor'), report: E('tab-report'), setup: E('tab-setup'), project: E('tab-project') };
   function show(name) {
     Object.keys(views).forEach(k => { views[k].hidden = k !== name; tabs[k].setAttribute('aria-selected', String(k === name)); });
-    E('secnav').style.visibility = name === 'project' ? 'visible' : 'hidden'; tick();
+    E('secnav').style.visibility = name === 'project' ? 'visible' : 'hidden'; tick(); if (window.__reportRender) window.__reportRender();
   }
   window.__show = show;
   function route() {
     const h = location.hash;
     if (h === '' || h === '#' || h === '#monitor') show('monitor');
     else if (h === '#setup') show('setup');
+    else if (h === '#report') show('report');
     else { show('project'); if (h !== '#project' && h !== '#top') { const el = document.getElementById(h.slice(1)); if (el) el.scrollIntoView(); } }
   }
   Object.keys(tabs).forEach(k => tabs[k].addEventListener('click', () => { show(k); try { location.hash = k; } catch (e) { } window.scrollTo(0, 0); }));
-  document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => { const h = a.getAttribute('href'); if (['#monitor', '#setup'].includes(h)) { e.preventDefault(); show(h.slice(1)); try { location.hash = h; } catch (x) { } window.scrollTo(0, 0); } }));
+  document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => { const h = a.getAttribute('href'); if (['#monitor', '#setup', '#report'].includes(h)) { e.preventDefault(); show(h.slice(1)); try { location.hash = h; } catch (x) { } window.scrollTo(0, 0); } }));
   window.addEventListener('hashchange', route);
   route();
 })();
+
 </script>
+<script>
+/* ===== gym report tab ===== */
+(() => {
+  const E = id => document.getElementById(id);
+  const HK = 'boneHist2', DK = 'boneDXA';
+  const ld = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+  const sv = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
+  const NEED_HOPS = Math.ceil(-D0 * Math.log(1 - END_TARGET / 100) / 1.2);
+  const NEED_RUN = Math.ceil(-D0 * Math.log(1 - END_TARGET / 100) / 0.36);
+  const NEED_LIFT = -R0 * Math.log(1 - END_TARGET / 100) / 60;
+  const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const COLS = { rest: 'var(--c-rest)', walk: 'var(--c-walk)', run: 'var(--c-run)', hop: 'var(--c-hop)', squat: 'var(--c-squat)' };
+
+  E('rpTime').innerHTML = CLASSES.map(c => `<div class="row"><span>${LABELS[c]}</span><div class="track"><div class="fill" id="rt_${c}" style="background:${COLS[c]};width:0"></div></div><span class="num" id="rv_${c}">0:00</span></div>`).join('');
+
+  /* ----- DXA inputs ----- */
+  const dx = ld(DK, {});
+  [['dxaSite', 'site'], ['dxaPV', 'pv'], ['dxaPD', 'pd'], ['dxaLV', 'lv'], ['dxaLD', 'ld']].forEach(([id, k]) => {
+    if (dx[k] != null) E(id).value = dx[k];
+    E(id).addEventListener('input', () => { dx[k] = E(id).value; sv(DK, dx); dxaOut(); });
+  });
+  function dxaOut() {
+    const pv = parseFloat(E('dxaPV').value), lv = parseFloat(E('dxaLV').value), pd = E('dxaPD').value, ldt = E('dxaLD').value;
+    if (!(pv > 0 && lv > 0)) { E('dxaOut').textContent = 'Enter two scans to see your change.'; return; }
+    const p = 100 * (lv - pv) / pv; let t = `${E('dxaSite').value}: ${lv.toFixed(3)} g/cm², ${p >= 0 ? '+' : ''}${p.toFixed(2)}% vs previous`;
+    if (pd && ldt) { const mo = (new Date(ldt) - new Date(pd)) / 864e5 / 30.44; if (mo > 0.2) t += ` over ${mo.toFixed(1)} months (${(p / mo >= 0 ? '+' : '')}${(p / mo).toFixed(2)}% per month)`; }
+    E('dxaOut').textContent = t + '.';
+  }
+
+  /* ----- plan and goals ----- */
+  function plan() {
+    if (day.t < 20) return [{ k: 'Waiting', t: 'Run the monitor for a few minutes so the model can read your movement.', f: '' }];
+    const out = [], hops = day.hopsNeeded(), lift = day.liftMinNeeded(), sed = day.t - day.lastOst, inact = day.len < 1000 ? 20 : 2700;
+    out.push(hops > 0
+      ? { k: 'Passive shock', t: `Impact loading is ${Math.round(day.imp)} of the ${END_TARGET} target. Do about ${hops} more hops or heel drops (${Math.ceil(hops / 15)} sets of 15, 30 s rest).`, f: 'warn' }
+      : { k: 'Passive shock', t: 'Impact target met. Keep tomorrow similar.', f: 'ok' });
+    out.push(lift > 0.05
+      ? { k: 'High strength', t: `Resistance loading is ${Math.round(day.rsc)} of the ${END_TARGET} target. Add about ${lift.toFixed(1)} more minutes of loaded squats or ARED lifts (slow, heavy reps).`, f: 'warn' }
+      : { k: 'High strength', t: 'Resistance target met. Keep tomorrow similar.', f: 'ok' });
+    if (sed > inact) out.push({ k: 'Gaps', t: `${fmtT(sed)} since the last strong impact. Spread impact work through the day instead of one block.`, f: 'warn' });
+    const tot = Math.max(1, Object.values(day.time).reduce((a, b) => a + b, 0)), rest = day.time.rest / tot;
+    if (rest > 0.6 && day.t > 120) out.push({ k: 'Activity', t: `${Math.round(rest * 100)}% of today was resting. Bone needs load, so add short bursts of movement.`, f: '' });
+    return out;
+  }
+
+  /* ----- history ----- */
+  function hist() { return ld(HK, []); }
+  function saveToday() {
+    const h = hist().filter(x => x.date !== today());
+    h.push({ date: today(), imp: Math.round(day.imp), res: Math.round(day.rsc), hops: day.cnt.hop, run: day.cnt.run, lift: +(day.time.squat / 60).toFixed(1), demo: mode === 'demo' || day.len < 1000 });
+    h.sort((a, b) => a.date < b.date ? -1 : 1); sv(HK, h.slice(-30)); renderHist(); E('rpHistNote').textContent = 'Saved ' + today() + '.';
+  }
+  function renderHist() {
+    const h = hist().slice(-7);
+    E('rpHist').innerHTML = h.length ? h.map(x => `<div class="hcol"><div class="hbars"><i style="height:${Math.max(2, x.imp * 0.64)}px;background:var(--c-hop)" title="impact ${x.imp}"></i><i style="height:${Math.max(2, x.res * 0.64)}px;background:var(--c-squat)" title="resistance ${x.res}"></i></div><span>${x.date.slice(5)}</span><span>${x.imp}/${x.res}${x.demo ? ' demo' : ''}</span></div>`).join('') : '<span class="small mute">No saved days yet.</span>';
+  }
+  E('rpSave').onclick = saveToday;
+  E('rpClear').onclick = () => { sv(HK, []); renderHist(); E('rpHistNote').textContent = 'History cleared.'; };
+
+  /* ----- summary text ----- */
+  function summary(s, p) {
+    const lines = [`BoneLoad gym report, ${today()}`, `Status: ${s} (day ${Math.round(day.frac() * 100)}% complete${day.len < 1000 ? ', demo day' : ''})`,
+      `Impact score ${Math.round(day.imp)}/100, resistance score ${Math.round(day.rsc)}/100 (target ${END_TARGET} by day end)`,
+      `Impacts over 2 g: ${day.n.mid + day.n.high}, hops ${day.cnt.hop}, run strides ${day.cnt.run}, squat/lift ${(day.time.squat / 60).toFixed(1)} min, peak ${day.maxPk.toFixed(1)} g`];
+    const pv = parseFloat(E('dxaPV').value), lv = parseFloat(E('dxaLV').value);
+    if (pv > 0 && lv > 0) lines.push('DXA: ' + E('dxaOut').textContent);
+    lines.push('Suggestions:'); p.forEach(x => lines.push(`- ${x.k}: ${x.t}`));
+    lines.push('Loading scores come from the phone. Bone density is only measured by DXA.');
+    return lines.join('\n');
+  }
+  E('rpCopy').onclick = async () => {
+    const ta = E('rpText2'); ta.focus(); ta.select();
+    try { await navigator.clipboard.writeText(ta.value); E('rpCopied').textContent = 'Copied.'; } catch (e) { E('rpCopied').textContent = 'Text selected. Copy it with your keyboard.'; }
+  };
+
+  /* ----- render ----- */
+  function render() {
+    if (E('report').hidden) return;
+    const s = day.status(), P = plan();
+    E('rpHero').className = 'card hero ' + s; E('rpPill').className = 'pill ' + s;
+    E('rpPill').textContent = { starting: 'Starting', protected: 'On track', watch: 'Watch', risk: 'Behind' }[s];
+    E('rpHead').textContent = { starting: day.t < 20 ? 'No session yet' : 'Collecting data', protected: 'Loading on pace', watch: 'One area is behind', risk: 'Behind on loading' }[s];
+    E('rpText').textContent = day.t < 20 ? 'Start the monitor or run the demo, then come back here.' : adviceText(s);
+    E('rpDay').textContent = `day ${Math.round(day.frac() * 100)}% · ${fmtT(day.t)} elapsed` + (day.len < 1000 ? ' · demo day, loading counts 4x' : '');
+    const active = day.t - day.time.rest;
+    E('rpStats').innerHTML = [[fmtT(active), 'active time'], [day.n.mid + day.n.high, 'impacts over 2 g'], [day.cnt.hop, 'jumps and hops'], [day.cnt.run, 'run strides'], [(day.time.squat / 60).toFixed(1), 'squat / lift minutes'], [day.maxPk ? day.maxPk.toFixed(1) + ' g' : '-', 'hardest impact']]
+      .map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+    const tot = Math.max(1, Object.values(day.time).reduce((a, b) => a + b, 0));
+    CLASSES.forEach(c => { E('rt_' + c).style.width = (100 * day.time[c] / tot) + '%'; E('rv_' + c).textContent = fmtT(day.time[c]); });
+    const ex = day.expected();
+    E('rpFi').style.width = day.imp + '%'; E('rpFr').style.width = day.rsc + '%'; E('rpMi').style.left = ex + '%'; E('rpMr').style.left = ex + '%';
+    E('rpVi').textContent = Math.round(day.imp); E('rpVr').textContent = Math.round(day.rsc);
+    E('rpPlan').innerHTML = P.map(x => `<li class="${x.f}"><b>${x.k}</b>${x.t}</li>`).join('');
+    const ok = v => v >= END_TARGET ? 'met' : 'below';
+    E('rpGoals').innerHTML = `<tr><td>Impact score</td><td>${Math.round(day.imp)} (${ok(day.imp)})</td><td>${END_TARGET}</td><td>About ${NEED_HOPS} hops or heel drops, or about ${NEED_RUN} running strides</td></tr>
+      <tr><td>Resistance score</td><td>${Math.round(day.rsc)} (${ok(day.rsc)})</td><td>${END_TARGET}</td><td>About ${NEED_LIFT.toFixed(1)} minutes of loaded squats or lifts</td></tr>
+      <tr><td>Strong impact gaps</td><td>${fmtT(day.t - day.lastOst)} since last</td><td>spread out</td><td>Short sessions through the day beat one block</td></tr>`;
+    E('rpText2').value = summary({ starting: 'starting', protected: 'on track', watch: 'one area behind', risk: 'behind' }[s], P);
+  }
+  window.__reportRender = render; dxaOut(); renderHist(); setInterval(render, 1000);
+})();
+
+</script>
+
 <script>
 (() => { const f = document.getElementById("sim"); const fit = () => { try { const h = f.contentDocument.documentElement.scrollHeight; if (h > 200) f.style.height = (h + 4) + "px"; } catch (e) {} };
   f.addEventListener("load", () => { fit(); try { new ResizeObserver(fit).observe(f.contentDocument.body); } catch (e) {} }); window.addEventListener("resize", fit); })();
